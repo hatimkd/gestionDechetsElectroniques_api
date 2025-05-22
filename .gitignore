@@ -1,0 +1,35 @@
+
+# Environnement virtuel
+venv/
+.env
+
+# Fichiers Python compilés
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Base de données locale (si sqlite)
+*.sqlite3
+
+# Fichiers temporaires de l’OS
+*.DS_Store
+Thumbs.db
+
+# Paramètres IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Fichiers de test ou cache
+coverage/
+htmlcov/
+*.cover
+*.py,cover
+
+# Déploiement
+*.tar.gz
+*.egg-info/
+build/
+dist/
