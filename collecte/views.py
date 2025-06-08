@@ -14,10 +14,18 @@ from rest_framework import status
 from rest_framework.decorators import action
 
 
-from .permissions import IsClient, IsManager, IsLogisticien, IsTechnicien
+from .permissions import (
+    IsClient,
+    IsManager,
+    IsLogisticien,
+    IsTechnicienManager,
+    IsTechnicien,
+    IsLogisticienOrManager,
+)
 
 
 from .models import Client
+from account.serializers import TechnicienSerializer
 
 
 class DemandeCollecteViewSet(viewsets.ModelViewSet):
@@ -26,7 +34,7 @@ class DemandeCollecteViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ["create"]:
-            return [permissions.IsAuthenticated(), IsClient()]
+            return [permissions.IsAuthenticated()]
         if self.action in ["update", "partial_update", "destroy"]:
             return [permissions.IsAuthenticated(), IsManager()]
         return [permissions.IsAuthenticated()]
@@ -112,19 +120,210 @@ class DechetViewSet(viewsets.ModelViewSet):
     serializer_class = DechetSerializer
 
     def get_permissions(self):
-        if self.action == "create":
-            return [permissions.IsAuthenticated(), IsTechnicien()]
-        return [permissions.IsAuthenticated()]
+        # request.user.groups.filter(name="Technicien").exists()
+        return [
+            IsTechnicienManager()
+            # permissions.IsAuthenticated(),
+            # IsTechnicien(),IsManager()
+        ]
+        # or selrequest.user.groups.filter(name="Technicien").exists()
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# class RapportViewSet(viewsets.ModelViewSet):
+#     queryset = Rapport.objects.all()
+#     serializer_class = RapportSerializer
+
+#     def get_permissions(self):
+#         if self.action == "create":
+#             return [permissions.IsAuthenticated(), IsTechnicien()]
+#         return [permissions.IsAuthenticated()]
+from reportlab.pdfgen import canvas
+from django.conf import settings
+import os
+from datetime import datetime
+
+
+# def generer_pdf_rapport(rapport):
+#     # Crée un nom de fichier unique
+#     nom_fichier = f"rapport_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+#     # chemin_relatif = os.path.join("rapports", nom_fichier)
+#     chemin_relatif = os.path.join("rapports", nom_fichier).replace("\\", "/")
+
+#     chemin_absolu = os.path.join(settings.MEDIA_ROOT, chemin_relatif)
+
+#     # Crée le dossier s'il n'existe pas
+#     os.makedirs(os.path.dirname(chemin_absolu), exist_ok=True)
+
+#     # Création du PDF
+#     c = canvas.Canvas(chemin_absolu)
+#     c.drawString(100, 800, f"Rapport du {rapport.date}")
+#     c.drawString(100, 780, f"Poids mesuré : {rapport.poids_mesure} kg")
+#     c.drawString(100, 760, f"Trié par : {rapport.trie_par.user.username}")
+
+#     y = 740
+#     for dechet in rapport.dechets:
+#         c.drawString(
+#             100,
+#             y,
+#             f"- {dechet['type_dechet']} x{dechet['quantite']} ({dechet['poids']}kg)",
+#         )
+#         y -= 20
+
+#     c.save()
+#     return chemin_relatif  # À stocker dans `chemin_pdf`
+
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
+from django.conf import settings
+import os
+from datetime import datetime
+
+
+def generer_pdf_rapport(rapport):
+    nom_fichier = f"rapport_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    chemin_relatif = os.path.join("rapports", nom_fichier)
+    chemin_absolu = os.path.join(settings.MEDIA_ROOT, chemin_relatif)
+    os.makedirs(os.path.dirname(chemin_absolu), exist_ok=True)
+
+    c = canvas.Canvas(chemin_absolu, pagesize=A4)
+    largeur, hauteur = A4
+    y = hauteur - 2 * cm
+
+    def add_line(text, size=12, bold=False):
+        nonlocal y
+        c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+        c.drawString(2 * cm, y, text)
+        y -= 1 * cm
+
+    add_line("📄 Rapport de tri", size=16, bold=True)
+    add_line(f"Date du rapport : {rapport.date}")
+    add_line(f"Poids mesuré : {rapport.poids_mesure} kg")
+    add_line(
+        f"Rapport est Validé par manager : {'Oui' if rapport.valide_par_manager else 'Non'}"
+    )
+    add_line("")
+
+    # 🔹 Technicien
+    technicien = rapport.trie_par
+    add_line("👨‍🔧 Technicien", bold=True)
+    add_line(f"Nom : {technicien.user.username}")
+    add_line(f"Email : {technicien.user.email}")
+    add_line(f"Spécialité : {technicien.specialite}")
+    add_line("")
+
+    # 🔹 Chargement
+    chargement = rapport.chargement
+    add_line("🚛 Chargement", bold=True)
+    add_line(f"Date : {chargement.date}")
+    add_line(f"Logisticien nom: {chargement.logisticien.user.username}")
+    add_line(f"Logisticien telephone: {chargement.logisticien.telephone}")
+    add_line(f"Poids estimé : {chargement.poids_estime} kg")
+    add_line("Contenu réel :")
+    for k, v in chargement.contenu_reel.items():
+        add_line(f"  - {k} : {v}")
+
+    # 🔹 Demande collecte
+    # demande = chargement.demande_collecte_detail
+    demande = chargement.demande_collecte
+
+    add_line("")
+    add_line("📦 Demande de collecte", bold=True)
+    add_line(f"Date souhaitée : {demande.date_souhaitee_client}")
+    add_line(f"Statut : {demande.statut}")
+    add_line(f"Client ID : {demande.client}")
+    add_line("Contenu déclaré :")
+    for k, v in demande.contenu_declare.items():
+        add_line(f"  - {k} : {v}")
+
+    # # 🔹 Manager
+    # manager = demande.manager
+    # add_line("")
+    # add_line("🧑‍💼 Manager", bold=True)
+    # add_line(f"Nom : {manager['user']['username']}")
+    # add_line(f"Email : {manager['user']['email']}")
+
+    # 🔹 Déchets
+    add_line("")
+    add_line("♻️ Déchets triés", bold=True)
+    for dechet in rapport.dechets:
+        add_line(
+            f"- {dechet['type_dechet']} x{dechet['quantite']} ({dechet['poids']} kg)"
+        )
+
+    c.save()
+    return chemin_relatif
 
 
 class RapportViewSet(viewsets.ModelViewSet):
     queryset = Rapport.objects.all()
     serializer_class = RapportSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-    def get_permissions(self):
-        if self.action == "create":
-            return [permissions.IsAuthenticated(), IsTechnicien()]
-        return [permissions.IsAuthenticated()]
+    def get_queryset(self):
+        user = self.request.user
+
+        # Vérifie si l'utilisateur appartient au groupe 'Client'
+        if user.groups.filter(name='Client').exists():
+            if hasattr(user, 'client_profile') and user.client_profile is not None:
+                # Filtrer les rapports pour ce client uniquement
+                return Rapport.objects.filter(
+                    chargement__demande_collecte__client=user.client_profile
+                )
+            else:
+                raise PermissionDenied("Client non trouvé pour cet utilisateur.")
+        
+        # Pour les autres groupes (Manager, Technicien, etc), renvoyer tous les rapports
+        return Rapport.objects.all()
+
+    def perform_create(self, serializer):
+        user = self.request.user
+
+        if not hasattr(user, "technicien_profile"):
+            raise PermissionDenied("Seul un technicien peut créer un rapport.")
+
+        # Créer d'abord le rapport avec le technicien lié
+        rapport = serializer.save(trie_par=user.technicien_profile)
+
+        # Générer le PDF
+        chemin_pdf = generer_pdf_rapport(rapport)
+
+        # Mettre à jour le champ chemin_pdf
+        rapport.chemin_pdf = chemin_pdf
+        rapport.save()
+
+    def update(self, request, *args, **kwargs):
+        # Récupérer le rapport à modifier
+        rapport = self.get_object()
+        user = request.user
+
+        # Vérifier que seul un manager peut valider
+        # Ici on suppose is_staff comme manager, adapte selon ton modèle de rôle
+        if "valide_par_manager" in request.data or "valide_par" in request.data:
+            if not user.groups.filter(name="Manager").exists():
+                raise PermissionDenied("Seul un manager peut valider un rapport.")
+
+            # Si tu as un champ ForeignKey valide_par
+            if "valide_par" in request.data:
+                rapport.valide_par = user
+
+            # Marquer la validation
+            rapport.valide_par_manager = True
+
+            # Enregistrer date validation si tu as ce champ
+            if hasattr(rapport, "validated_at"):
+                rapport.validated_at = timezone.now()
+
+            rapport.save()
+
+            serializer = self.get_serializer(rapport)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # Sinon comportement update normal (par exemple modification autre que validation)
+        return super().update(request, *args, **kwargs)
 
 
 from rest_framework.permissions import BasePermission, IsAuthenticated
@@ -152,7 +351,7 @@ from rest_framework.permissions import IsAuthenticated
 
 class DemandesAChargerView(generics.ListAPIView):
     serializer_class = DemandeCollecteSerializer
-    permission_classes = [IsAuthenticated, CanViewCollectePermission]
+    permission_classes = [IsAuthenticated, IsLogisticienOrManager]
 
     def get_queryset(self):
         # Exclure les demandes déjà associées à un chargement
@@ -179,7 +378,9 @@ class CanAddChargementPermission(BasePermission):
             "collecte.add_chargement"
         )  # Remplacez 'yourapp' par le nom de votre app
 
+
 from rest_framework import serializers
+
 
 # Appliquez cette permission dans la vue
 class ChargementCreateView(generics.CreateAPIView):
@@ -208,3 +409,61 @@ class ChargementCreateView(generics.CreateAPIView):
             )
         # L'utilisateur connecté est automatiquement assigné comme logisticien
         serializer.save(logisticien=self.request.user)
+from  account.models  import Client,Vehicule, Entreprise,Logisticien,Manager , Technicien
+from rest_framework.views import APIView 
+class DashboardCountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Cas ADMIN (superuser ou groupe Admin)
+        if user.is_superuser or user.groups.filter(name="Admin").exists():
+            return Response({
+                "total_demandes": DemandeCollecte.objects.count(),
+                "total_chargements": Chargement.objects.count(),
+                "total_rapports": Rapport.objects.count(),
+            })
+
+        # Cas MANAGER
+        elif user.groups.filter(name="Manager").exists():
+            try:
+                manager = user.manager_profile
+            except Manager.DoesNotExist:
+                raise PermissionDenied("Profil manager introuvable.")
+
+            return Response({
+                "total_demandes": DemandeCollecte.objects.filter(validee_par=manager).count(),
+                "total_chargements": Chargement.objects.filter(demande_collecte__validee_par=manager).count(),
+                "total_rapports": Rapport.objects.filter(chargement__demande_collecte__validee_par=manager).count(),
+            })
+
+        # Cas LOGISTICIEN
+        elif user.groups.filter(name="Logisticien").exists():
+            try:
+                logisticien = user.logisticien_profile
+            except Logisticien.DoesNotExist:
+                raise PermissionDenied("Profil logisticien introuvable.")
+
+            return Response({
+                "total_demandes": DemandeCollecte.objects.filter(chargement__logisticien=logisticien).distinct().count(),
+                "total_chargements": Chargement.objects.filter(logisticien=logisticien).count(),
+                "total_rapports": Rapport.objects.filter(chargement__logisticien=logisticien).count(),
+            })
+
+        # Cas TECHNICIEN
+        elif user.groups.filter(name="Technicien").exists():
+            try:
+                technicien = user.technicien_profile
+            except Technicien.DoesNotExist:
+                raise PermissionDenied("Profil technicien introuvable.")
+
+            return Response({
+                "total_demandes": 0,
+                "total_chargements": 0,
+                "total_rapports": Rapport.objects.filter(trie_par=technicien).count(),
+            })
+
+        # Autres rôles : interdit
+        raise PermissionDenied("Rôle non autorisé.")
+    

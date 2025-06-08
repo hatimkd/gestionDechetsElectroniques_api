@@ -135,6 +135,18 @@ class Dechet(models.Model):
         related_name='dechets_declares',
         verbose_name="Déclaré par"
     )
+    
+     
+     
+     
+    chargement = models.ForeignKey(
+        Chargement,
+        on_delete=models.CASCADE,
+        related_name='dechets',
+        verbose_name="Chargement associé",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         verbose_name = "Déchet"

@@ -1,12 +1,11 @@
-
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Manager, Client, Technicien, Logisticien,Vehicule,   Entreprise
-
+from .models import Manager, Client, Technicien, Logisticien, Vehicule, Entreprise
 
 
 from collecte.models import DemandeCollecte, Chargement, Dechet, Rapport
+
 
 class BaseUserSerializer(serializers.Serializer):
     username = serializers.CharField()
@@ -15,9 +14,9 @@ class BaseUserSerializer(serializers.Serializer):
 
     def create_user(self, validated_data):
         return User.objects.create_user(
-            username=validated_data.pop('username'),
-            password=validated_data.pop('password'),
-            email=validated_data.pop('email'),
+            username=validated_data.pop("username"),
+            password=validated_data.pop("password"),
+            email=validated_data.pop("email"),
         )
 
 
@@ -52,26 +51,28 @@ class AdminManagerCreateSerializer(BaseUserSerializer):
     def create(self, validated_data):
         user = self.create_user(validated_data)
         return Manager.objects.create(user=user)
+
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
         user = self.user
-        
+
         # Vérifier si l'utilisateur est actif
         if not user.is_active:
             raise serializers.ValidationError("Compte désactivé.")
 
         # Rôle et validation d'entreprise
         role = None
-        if hasattr(user, 'manager_profile'):
+        if hasattr(user, "manager_profile"):
             role = "manager"
-        elif hasattr(user, 'client_profile'):
+        elif hasattr(user, "client_profile"):
             if not user.client_profile.entreprise.is_active:
                 raise serializers.ValidationError("Entreprise désactivée.")
             role = "client"
-        elif hasattr(user, 'technicien_profile'):
+        elif hasattr(user, "technicien_profile"):
             role = "technicien"
-        elif hasattr(user, 'logisticien_profile'):
+        elif hasattr(user, "logisticien_profile"):
             role = "logisticien"
         elif user.is_superuser:
             role = "admin"
@@ -89,12 +90,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 
 
-
-
-
-
-
-
 class ClientRegisterSerializer(serializers.Serializer):
     username = serializers.CharField()
     email = serializers.EmailField()
@@ -107,18 +102,18 @@ class ClientRegisterSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         entreprise = Entreprise.objects.create(
-            nom=validated_data['entreprise_nom'],
-            adresse=validated_data['entreprise_adresse'],
-            ice=validated_data['entreprise_ice'],
-            telephone=validated_data['entreprise_telephone'],
-            is_active=False  # En attente de validation
+            nom=validated_data["entreprise_nom"],
+            adresse=validated_data["entreprise_adresse"],
+            ice=validated_data["entreprise_ice"],
+            telephone=validated_data["entreprise_telephone"],
+            is_active=False,  # En attente de validation
         )
 
         user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password'],
-            is_active=False  # En attente de validation
+            username=validated_data["username"],
+            email=validated_data["email"],
+            password=validated_data["password"],
+            is_active=False,  # En attente de validation
         )
 
         Client.objects.create(
@@ -126,31 +121,35 @@ class ClientRegisterSerializer(serializers.Serializer):
             entreprise=entreprise,
             adresse=entreprise.adresse,
             telephone=entreprise.telephone,
-            is_active=False
+            is_active=False,
         )
 
         return user
-    
-    
-    
+
+
 class AdminValidateSerializer(serializers.Serializer):
     is_active = serializers.BooleanField()
+
 
 class UserLiteSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['username', 'email']
+        fields = ["username", "email"]
+
+
 class ManagerSerializer(serializers.ModelSerializer):
-    user= UserLiteSerializer(read_only=True)
+    user = UserLiteSerializer(read_only=True)
+
     class Meta:
         model = Manager
-        fields = ['user']  # ou les champs que tu souhaites exposer
-        
-    
+        fields = ["user"]  # ou les champs que tu souhaites exposer
+
+
 class VehiculeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vehicule
-        fields = '__all__'
+        fields = "__all__"
+
 
 # class ClientSerializer(serializers.ModelSerializer):
 #     user = User(read_only=True)
@@ -169,4 +168,38 @@ class VehiculeSerializer(serializers.ModelSerializer):
 #             'informations'
 #         ]
 
-        
+
+class EntrepriseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Entreprise
+        fields = "__all__"
+
+
+class ClientListSerializer(serializers.ModelSerializer):
+    user = UserLiteSerializer(read_only=True)
+    entreprise = (
+        serializers.StringRelatedField()
+    )  # ou un serializer complet si tu veux plus de détails
+
+    class Meta:
+        model = Client
+        fields = ["id", "user", "entreprise", "adresse", "telephone", "is_active"]
+
+class LogisticienSerializers(serializers.ModelSerializer):
+    user = UserLiteSerializer(read_only=True)
+
+    class Meta:
+        model = Logisticien
+        fields = '__all__'  # Inclut automatiquement user + tous les champs du modèle
+
+
+
+class TechnicienSerializer(serializers.ModelSerializer):
+    user = UserLiteSerializer(
+        read_only=True
+    )  # Sérialisation imbriquée de l'utilisateur lié
+
+    class Meta:
+        model = Technicien
+        fields = "__all__"  # chaîne de caractères, pas liste !
+        fields_only = ["user"]

@@ -3,9 +3,9 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import ClientRegisterSerializer
+from .serializers import ClientRegisterSerializer ,EntrepriseSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import CustomTokenObtainPairSerializer, VehiculeSerializer
+from .serializers import CustomTokenObtainPairSerializer, VehiculeSerializer,ClientListSerializer
 
 
 
@@ -16,7 +16,7 @@ from rest_framework.permissions import IsAdminUser
 
 
 
-from .models  import Client,Vehicule
+from .models  import Client,Vehicule, Entreprise
 
 from rest_framework import status
 
@@ -80,9 +80,11 @@ class AdminCreateManagerView(APIView):
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
+from rest_framework.permissions import AllowAny
 
 
 class ClientRegisterView(APIView):
+    permission_classes=[AllowAny]
     def post(self, request):
         serializer = ClientRegisterSerializer(data=request.data)
         if serializer.is_valid():
@@ -187,3 +189,16 @@ class VehiculeViewSet(viewsets.ModelViewSet):
 
         # Sinon, accès refusé
         return Vehicule.objects.none()
+    
+    
+
+
+
+
+class InactiveEntreprisesView(APIView):
+    # permission_classes = [IsAdminUser]
+
+     def get(self, request):
+        clients_inactifs = Client.objects.filter(is_active=False)
+        serializer = ClientListSerializer(clients_inactifs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
