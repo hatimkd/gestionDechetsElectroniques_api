@@ -1,14 +1,29 @@
-# .gitignore
+# Fichiers Python compilés
 *.pyc
+*.py[cod]
 __pycache__/
+
+# Environnements virtuels
 env/
 venv/
+
+# Base de données SQLite
 *.sqlite3
 db.sqlite3
+
+# Dossiers médias et rapports (PDF etc.)
 /media/
 /rapports/
+
+# Fichiers de logs
 *.log
+
+# Fichiers de traduction
 *.pot
-*.py[cod]
+
+# Fichiers statiques collectés (Django)
 staticfiles/
+
+# Fichier d'environnement (variables sensibles)
 .env
+
