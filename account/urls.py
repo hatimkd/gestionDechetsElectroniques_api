@@ -15,11 +15,12 @@ from .views import (
     AdminCreateManagerView,
     
     
-    InactiveEntreprisesView
+    InactiveEntreprisesView,
+    UserViewSet
 )
 router = DefaultRouter()
 router.register('vehicules', VehiculeViewSet , basename='vehicule')
-
+router.register(r'users', UserViewSet, basename='user')
 urlpatterns = [
     path("register/", ClientRegisterView.as_view(), name="client_register"),
     path("login/", CustomTokenObtainPairView.as_view(), name="token_obtain_pair"),

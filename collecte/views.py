@@ -130,6 +130,18 @@ class DechetViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save()
+    
+    
+    
+    
+    def get_queryset(self):
+        queryset = Dechet.objects.all()
+        chargement_id = self.request.query_params.get("chargement_id")
+
+        if chargement_id:
+            queryset = queryset.filter(chargement__id=chargement_id)
+
+        return queryset
 
 
 # class RapportViewSet(viewsets.ModelViewSet):
@@ -195,6 +207,9 @@ def generer_pdf_rapport(rapport):
 
     def add_line(text, size=12, bold=False):
         nonlocal y
+        if y < 2 * cm:
+            c.showPage()
+            y = hauteur - 2 * cm
         c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
         c.drawString(2 * cm, y, text)
         y -= 1 * cm
@@ -249,11 +264,40 @@ def generer_pdf_rapport(rapport):
     # 🔹 Déchets
     add_line("")
     add_line("♻️ Déchets triés", bold=True)
-    for dechet in rapport.dechets:
+    # for dechet in rapport.dechets:
+    #     add_line(
+    #         f"- {dechet['type_dechet']} x{dechet['quantite']} ({dechet['poids']} kg)"
+    #     )
+    # Déchets
+    dechets = rapport.dechets
+
+    total_global = 0.0
+
+    for dechet in dechets:
+        type_dechet = dechet.get('type_dechet', 'Inconnu')
+        mode_valo = dechet.get('mode_valorisation', 'par_piece')
+        prix_unitaire = float(dechet.get('prix_unitaire', 0))
+        quantite = int(dechet.get('quantite', 0))
+        poids = float(dechet.get('poids', 0))
+
+        if mode_valo == 'par_kg':
+            valeur_totale = prix_unitaire * poids
+            unit = f"{poids} kg"
+        else:  # par_piece par défaut
+            valeur_totale = prix_unitaire * quantite
+            unit = f"{quantite} pièces"
+
+        total_global += valeur_totale
+
         add_line(
-            f"- {dechet['type_dechet']} x{dechet['quantite']} ({dechet['poids']} kg)"
+            f"- {type_dechet} | {unit} | "
+            f"Mode: {mode_valo.replace('_', ' ')} | "
+            f"Prix unitaire: {prix_unitaire:.2f} € | "
+            f"Total: {valeur_totale:.2f} €"
         )
 
+        add_line("")
+        add_line(f"💰 Valeur totale des déchets : {total_global:.2f} €", bold=True)
     c.save()
     return chemin_relatif
 

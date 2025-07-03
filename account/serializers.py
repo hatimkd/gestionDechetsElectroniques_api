@@ -203,3 +203,25 @@ class TechnicienSerializer(serializers.ModelSerializer):
         model = Technicien
         fields = "__all__"  # chaîne de caractères, pas liste !
         fields_only = ["user"]
+
+# users/serializers.py
+from django.contrib.auth.models import User
+from rest_framework import serializers
+
+class UserSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_active', 'date_joined', 'role']
+
+    def get_role(self, obj):
+        if hasattr(obj, "manager_profile"):
+            return "manager"
+        elif hasattr(obj, "client_profile"):
+            return "client"
+        elif hasattr(obj, "technicien_profile"):
+            return "technicien"
+        elif hasattr(obj, "logisticien_profile"):
+            return "logisticien"
+        return "utilisateur"

@@ -158,6 +158,7 @@ class DechetSerializer(serializers.ModelSerializer):
 from django.conf import settings
 
 
+
 class RapportSerializer(serializers.ModelSerializer):
     trie_par = TechnicienSerializer(read_only=True)
     chargement = ChargementSerializer(read_only=True)

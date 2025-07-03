@@ -202,3 +202,27 @@ class InactiveEntreprisesView(APIView):
         clients_inactifs = Client.objects.filter(is_active=False)
         serializer = ClientListSerializer(clients_inactifs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+
+
+from django.contrib.auth.models import User
+from rest_framework import viewsets, permissions
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from .serializers import UserSerializer
+class IsAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.is_staff
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all().order_by("-date_joined")
+    serializer_class = UserSerializer
+    permission_classes = [IsAdmin]
+
+    @action(detail=True, methods=["delete"], permission_classes=[IsAdmin])
+    def drop(self, request, pk=None):
+        user = self.get_object()
+        username = user.username
+        user.delete()
+        return Response({"detail": f"L'utilisateur {username} a été supprimé."})
